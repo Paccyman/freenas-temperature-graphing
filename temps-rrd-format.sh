@@ -24,8 +24,14 @@ temperatures in a format rrdtool can consume.
 Usage $0 [-v] [-d] [-h]
 
 -v | --verbose  Enables verbose output
--d | --debug   Outputs each line of the script as it executes (turns on xtrace)
--h | --help    Displays this message
+-d | --debug    Outputs each line of the script as it executes (turns on xtrace)
+-h | --help     Displays this message
+
+Options for ESXi:
+--platform "esxi"                Indicates that we will use ESXi tools to retrieve CPU temps
+--ipmitool_username <USERNAME>   Username to use when connecting to BMC
+--ipmitool_ip  <BMC_IP_ADDRESS>  BMC ip address to connect to
+
 '
 }
 
@@ -34,11 +40,15 @@ Usage $0 [-v] [-d] [-h]
 help=
 verbose=
 debug=
+PLATFORM=default
 while [ $# -gt 0 ]; do
   case $1 in
     -h|--help)  help=1;                     shift 1 ;;
     -v|--verbose) verbose=1;                shift 1 ;;
     -d|--debug) debug=1;                    shift 1 ;;
+    --platform) PLATFORM=$1;                shift 1 ;;
+    --ipmitool_username) USERNAME=$1;       shift 1 ;;
+    --ipmitool_ip) BMC_IP_ADDRESS=$1;       shift 1 ;;
     -*)         echo "$0: Unrecognized option: $1 (try --help)" >&2; exit 1 ;;
     *)          shift 1; break ;;
   esac
@@ -74,9 +84,18 @@ done
 # Get CPU temperatures
 data=
 for (( i=0; i < ${numcpus}; i++ )); do
-  t=`/sbin/sysctl -n dev.cpu.$i.temperature`
+  case "${PLATFORM}" in
+    esxi)
+      [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Attempting to retrieve CPU$((i+1)) temperatures using ipmitool with username '${USERNAME} and ip ${BMC_IP_ADDRESS}..."
+      t=`ipmitool -I lanplus -H ${BMC_IP_ADDRESS} -U ${USERNAME} -f /root/.ipmi sdr elist | sed -Ene 's/^CPU[^ ]+ +Temp +\| +([^.]+).*/\1/p' | sed -n "$((i+1))p"`
+      ;;
+    *)
+      t=`/sbin/sysctl -n dev.cpu.$i.temperature`
+  esac
   data=${data}${sep}${t%.*}  # Append the temperature to the data string, removing anything after the decimal
 done
+
+
 # Get drive temperatures
 for i in ${drivedevs}; do
   DevTemp=`/usr/local/sbin/smartctl -a /dev/$i | grep '194 *Temperature_Celsius' | awk '{print $10}'`;

@@ -37,6 +37,11 @@ Usage $0 [-v] [-d] [-h] output-filename
 -d | --debug   Outputs each line of the script as it executes (turns on xtrace)
 -h | --help    Displays this message
 
+Options for ESXi:
+--platform "esxi"                Indicates that we will use ESXi tools to retrieve CPU temps
+--ipmitool_username <USERNAME>   Username to use when connecting to BMC
+--ipmitool_ip  <BMC_IP_ADDRESS>  BMC ip address to connect to
+
 Note: The filename must be in the following format: temps-Xmin.rdd
   where X is the minute interval between readings.
   ex: "temps-10min.rrd" would contain readings every 10 minutes
@@ -166,16 +171,20 @@ func_debug_setup () {
 
 
 
-
+origargs="$@"
 # Process command line args
 help=
 verbose=
 debug=
 while [ $# -gt 0 ]; do
+echo $1
   case $1 in
     -h|--help)  help=1;                     shift 1 ;;
     -v|--verbose) verbose=1;                shift 1 ;;
     -d|--debug) debug=1;                    shift 1 ;;
+    --platform) PLATFORM=$1;                shift 1 ;;
+    --ipmitool_username) USERNAME=$1;       shift 1 ;;
+    --ipmitool_ip) BMC_IP_ADDRESS=$1;       shift 1 ;;
     -*)         echo "$0: Unrecognized option: $1 (try --help)" >&2; exit 1 ;;
     *)          datafile=$1;                     shift 1; break ;;
   esac
@@ -187,6 +196,14 @@ if [ -n "$debug" ]; then
 fi
 
 [ -n "$help" ] && func_usage && exit 0
+
+case "${PLATFORM}" in
+  esxi)
+    [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Username is '${USERNAME} and ip is '${BMC_IP_ADDRESS}'"
+    args="${args} --platform ${PLATFORM} --ipmitool_username ${USERNAME} --ipmitool_ip ${BMC_IP_ADDRESS}"
+    ;;
+esac
+
 
 # Check we're root
 if [ "$(id -u)" != "0" ]; then
@@ -264,14 +281,14 @@ else
 fi
 
 
-[ -n "$verbose" ] && echo "Running script: '${CWD}/temps-rrd-format.sh'"
+[ -n "$verbose" ] && echo "Running script: '${CWD}/temps-rrd-format.sh ${args}'"
 [ -n "$verbose" ] && echo ""
 [ -n "$verbose" ] && echo ""
-[ -n "$verbose" ] && "${CWD}/temps-rrd-format.sh" "$@"
+[ -n "$verbose" ] && "${CWD}/temps-rrd-format.sh" -v "${args}"
 [ -n "$verbose" ] && echo ""
 [ -n "$verbose" ] && echo ""
 [ -n "$verbose" ] && echo "(running script again non-verbosely)"
-data=`${CWD}/temps-rrd-format.sh`
+data=`${CWD}/temps-rrd-format.sh ${args}`
 [ -n "$verbose" ] && echo "Data: ${data}"
 [ -n "$verbose" ] && echo ""
 [ -n "$verbose" ] && echo "Updating the db: '${RRDTOOL} update ${datafile} N:${data}'"
