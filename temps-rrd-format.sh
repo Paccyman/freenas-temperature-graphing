@@ -28,15 +28,17 @@ Usage $0 [-v] [-d] [-h]
 -h | --help     Displays this message
 
 Options for ESXi:
---platform "esxi"                Indicates that we will use ESXi tools to retrieve CPU temps
---ipmitool_username <USERNAME>   Username to use when connecting to BMC
---ipmitool_ip  <BMC_IP_ADDRESS>  BMC ip address to connect to
+--platform "esxi"                  Indicates that we will use ESXi tools to retrieve CPU temps
+--ipmitool_username <USERNAME>     Required: Username to use when connecting to BMC
+--ipmitool_address  <BMC_ADDRESS>  Required: BMC ip address to connect to
 
 '
 }
 
 
 # Process command line args
+origargs="$@"
+args=''
 help=
 verbose=
 debug=
@@ -46,9 +48,9 @@ while [ $# -gt 0 ]; do
     -h|--help)  help=1;                     shift 1 ;;
     -v|--verbose) verbose=1;                shift 1 ;;
     -d|--debug) debug=1;                    shift 1 ;;
-    --platform) PLATFORM=$1;                shift 1 ;;
-    --ipmitool_username) USERNAME=$1;       shift 1 ;;
-    --ipmitool_ip) BMC_IP_ADDRESS=$1;       shift 1 ;;
+    --platform) PLATFORM=$2;                shift 2 ;;
+    --ipmitool_username) USERNAME=$2;       shift 2 ;;
+    --ipmitool_address) BMC_ADDRESS=$2;     shift 2 ;;
     -*)         echo "$0: Unrecognized option: $1 (try --help)" >&2; exit 1 ;;
     *)          shift 1; break ;;
   esac
@@ -62,6 +64,15 @@ fi
 [ -n "$verbose" ] && set -o xtrace
 
 [ -n "$help" ] && func_usage && exit 0
+
+case "${PLATFORM}" in
+  esxi)
+    [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Username is '${USERNAME} and ip is '${BMC_ADDRESS}'"
+    [ -z "$USERNAME" ] && echo "You need to to provide --ipmitool_username with an argument" && exit 1
+    [ -z "$BMC_ADDRESS" ] && echo "You need to to provide --ipmitool_address with an argument" && exit 1
+    args="${args} --platform ${PLATFORM} --ipmitool_username ${USERNAME} --ipmitool_address ${BMC_ADDRESS}"
+    ;;
+esac
 
 # Check we're root
 if [ "$(id -u)" != "0" ]; then
@@ -86,8 +97,8 @@ data=
 for (( i=0; i < ${numcpus}; i++ )); do
   case "${PLATFORM}" in
     esxi)
-      [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Attempting to retrieve CPU$((i+1)) temperatures using ipmitool with username '${USERNAME} and ip ${BMC_IP_ADDRESS}..."
-      t=`ipmitool -I lanplus -H ${BMC_IP_ADDRESS} -U ${USERNAME} -f /root/.ipmi sdr elist | sed -Ene 's/^CPU[^ ]+ +Temp +\| +([^.]+).*/\1/p' | sed -n "$((i+1))p"`
+      [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Attempting to retrieve CPU$((i+1)) temperatures using ipmitool with username '${USERNAME} and ip ${BMC_ADDRESS}..."
+      t=`ipmitool -I lanplus -H ${BMC_ADDRESS} -U ${USERNAME} -f /root/.ipmi sdr elist | sed -Ene 's/^CPU[^ ]+ +Temp +\| +([^.]+).*/\1/p' | sed -n "$((i+1))p"`
       ;;
     *)
       t=`/sbin/sysctl -n dev.cpu.$i.temperature`

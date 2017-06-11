@@ -38,9 +38,9 @@ Usage $0 [-v] [-d] [-h] output-filename
 -h | --help    Displays this message
 
 Options for ESXi:
---platform "esxi"                Indicates that we will use ESXi tools to retrieve CPU temps
---ipmitool_username <USERNAME>   Required: Username to use when connecting to BMC
---ipmitool_ip  <BMC_IP_ADDRESS>  Required: BMC ip address to connect to
+--platform "esxi"                  Indicates that we will use ESXi tools to retrieve CPU temps
+--ipmitool_username <USERNAME>     Required: Username to use when connecting to BMC
+--ipmitool_address  <BMC_ADDRESS>  Required: BMC ip address to connect to
 
 Note: The filename must be in the following format: temps-Xmin.rdd
   where X is the minute interval between readings.
@@ -171,8 +171,9 @@ func_debug_setup () {
 
 
 
-origargs="$@"
 # Process command line args
+origargs="$@"
+args=''
 help=
 verbose=
 debug=
@@ -183,7 +184,7 @@ while [ $# -gt 0 ]; do
     -d|--debug) debug=1;                    shift 1 ;;
     --platform) PLATFORM=$2;                shift 2 ;;
     --ipmitool_username) USERNAME=$2;       shift 2 ;;
-    --ipmitool_ip) BMC_IP_ADDRESS=$2;       shift 2 ;;
+    --ipmitool_address) BMC_ADDRESS=$2;     shift 2 ;;
     -*)         echo "$0: Unrecognized option: $1 (try --help)" >&2; exit 1 ;;
     *)          datafile=$1;                     shift 1; break ;;
   esac
@@ -198,10 +199,10 @@ fi
 
 case "${PLATFORM}" in
   esxi)
-    [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Username is '${USERNAME} and ip is '${BMC_IP_ADDRESS}'"
+    [ -n "$verbose" ] && echo "Platform is set to '${PLATFORM}'. Username is '${USERNAME} and ip is '${BMC_ADDRESS}'"
     [ -z "$USERNAME" ] && echo "You need to to provide --ipmitool_username with an argument" && exit 1
-    [ -z "$BMC_IP_ADDRESS" ] && echo "You need to to provide --ipmitool_ip with an argument" && exit 1
-    args="${args} --platform ${PLATFORM} --ipmitool_username ${USERNAME} --ipmitool_ip ${BMC_IP_ADDRESS}"
+    [ -z "$BMC_ADDRESS" ] && echo "You need to to provide --ipmitool_address with an argument" && exit 1
+    args="${args} --platform ${PLATFORM} --ipmitool_username ${USERNAME} --ipmitool_address ${BMC_ADDRESS}"
     ;;
 esac
 
